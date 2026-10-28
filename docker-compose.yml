@@ -1,0 +1,85 @@
+# SAMRUDHI Agentic AI — local stack
+#   ollama      : local LLM server (pulls the model on first start)
+#   backend     : FastAPI agent runtime + pipeline + SAPI (port 8000)
+#   frontend    : React command centre served by nginx (port 8080)
+#
+#   docker compose up --build
+#   → open http://localhost:8080
+#
+# The model is configurable:  OLLAMA_MODEL=llama3.1:8b docker compose up
+# If the model cannot be pulled (offline), the backend automatically falls
+# back to its deterministic mock engine so every agent still works.
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: samrudhi-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    # --- GPU (optional): uncomment if you have an NVIDIA GPU + nvidia-container-toolkit
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # One-shot helper: waits for Ollama and pulls the model into the shared volume.
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: samrudhi-ollama-init
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        for i in $$(seq 1 90); do
+          if ollama list 2>/dev/null | grep -q "$$OLLAMA_MODEL"; then
+            echo "[ollama-init] model $$OLLAMA_MODEL ready"
+            exit 0
+          fi
+          echo "[ollama-init] pulling $$OLLAMA_MODEL (attempt $$i)…"
+          ollama pull "$$OLLAMA_MODEL" 2>&1 | tail -n 2 || true
+          sleep 3
+        done
+        echo "[ollama-init] WARNING: model not ready — backend will use the mock fallback engine"
+
+  backend:
+    build: ./backend
+    container_name: samrudhi-backend
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+      OLLAMA_TIMEOUT: "180"
+      LLM_FALLBACK_TO_MOCK: "true"
+      DB_PATH: /data/samrudhi.db
+      DATA_DIR: /data
+    volumes:
+      - samrudhi_data:/data
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    container_name: samrudhi-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  ollama_models:
+  samrudhi_data:
