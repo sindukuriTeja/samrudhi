@@ -10,6 +10,7 @@ import time
 
 from ..agents.registry import Agent, get_agent
 from ..db import Database
+from ..events import get_event_bus
 from ..llm.router import LLMRouter
 from ..sapi.scorecard import evaluate_run
 
@@ -121,6 +122,18 @@ _STAGE_PROMPTS: dict[str, str] = {
         "Summarise status, governance, any decision requested and watch items "
         "for the intended audience."
     ),
+    "role": (
+        "You are {agent_name} ({ROLE}), working your regular role cycle for "
+        "this deliverable.\n\n"
+        "Deliverable: {title}\nContent type: {ctype}\nTopic: {topic}\n\n"
+        "Client context:\n{client}\n\n"
+        "Pipeline status:\n{status}\n\n"
+        "Produce a concise, structured work note for your role: what you "
+        "reviewed or produced this cycle, a KPI check against your registered "
+        "KPIs, the handoff to your reporting line, and any watch items. "
+        "Stay strictly within your role's scope; do not author pipeline "
+        "stage outputs that belong to other agents."
+    ),
 }
 
 # Which context fields each stage needs
@@ -172,35 +185,66 @@ class AgentRuntime:
     def __init__(self, db: Database, llm: LLMRouter):
         self.db = db
         self.llm = llm
+        self.bus = get_event_bus()
 
     # ------------------------------------------------------------------ #
     def run_agent(self, agent: Agent, deliverable: dict, client: dict,
                   qa_kind: str = "TECHNICAL QA",
-                  exec_kind: str = "EXECUTIVE BRIEF") -> dict:
-        """Execute one agent on a deliverable. Returns the run record."""
-        stage = agent.stage or "executive"
+                  exec_kind: str = "EXECUTIVE BRIEF",
+                  stage_label: str = "") -> dict:
+        """Execute one agent on a deliverable. Returns the run record.
+
+        Every registered agent is executable:
+          * pipeline agents  -> their stage prompt
+          * executive agents -> the executive brief prompt
+          * all other roles  -> the role work-cycle prompt
+        """
+        if agent.stage:
+            stage = agent.stage
+        elif agent.tier == "executive":
+            stage = "executive"
+        else:
+            stage = "role"
         did = deliverable["id"]
+        if not stage_label:
+            stage_label = (f"{agent.role} work cycle"
+                           if agent.stage is None else
+                           f"{agent.stage} stage")
 
         prompt = self._build_prompt(agent, stage, deliverable, client, qa_kind,
                                     exec_kind)
         ctx = {
             "deliverable_id": did,
             "stage": stage,
+            "stage_label": stage_label,
             "client": client,
             "title": deliverable.get("title", ""),
             "topic": deliverable.get("topic", ""),
             "content_type": deliverable.get("content_type", ""),
+            "agent": {
+                "id": agent.id, "name": agent.name, "role": agent.role,
+                "department": agent.department, "reports_to": agent.reports_to,
+                "kpis": agent.kpis,
+            },
         }
 
         self.db.log(did, agent.id, "run.start",
                     f"stage={stage} provider_target={self.llm.settings.llm_provider}")
         run = self.db.create_run(did, stage, agent.id, status="running",
                                  input_summary=prompt[:500])
+        self.bus.emit("agent.start",
+                      f"{agent.name} running — {stage_label}",
+                      agent_id=agent.id, name=agent.name,
+                      deliverable_id=did, run_id=run["id"], stage=stage)
         try:
             res = self.llm.generate(agent.system_prompt, prompt, ctx=ctx)
         except Exception as e:  # noqa: BLE001
             self.db.log(did, agent.id, "run.error", str(e), run["id"])
             self.db.finish_run(run["id"], "failed", error=str(e))
+            self.bus.emit("agent.failed",
+                          f"{agent.name} failed: {e}",
+                          agent_id=agent.id, name=agent.name,
+                          deliverable_id=did, run_id=run["id"], error=str(e))
             raise
 
         # store output on the deliverable
@@ -256,6 +300,7 @@ class AgentRuntime:
             "QA_KIND": qa_kind,
             "EXEC_KIND": exec_kind,
             "agent_name": agent.name,
+            "ROLE": agent.role,
             "focus": _PLANNING_FOCUS.get(
                 agent.id, "Produce the planning output for this deliverable."),
         }
@@ -279,7 +324,8 @@ class AgentRuntime:
         from ..agents.registry import agents_by_stage
         runs = []
         for agent in agents_by_stage(stage):
-            run = self.run_agent(agent, deliverable, client, qa_kind, exec_kind)
+            run = self.run_agent(agent, deliverable, client, qa_kind,
+                                 exec_kind, stage_label=f"{stage} stage")
             runs.append(run)
             deliverable = self.db.get_deliverable(deliverable["id"]) or deliverable
         return runs

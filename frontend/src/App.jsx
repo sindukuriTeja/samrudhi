@@ -95,6 +95,7 @@ export default function App() {
         <main className="main">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/live" element={<Live />} />
             <Route path="/deliverables" element={<Deliverables />} />
             <Route path="/deliverables/:id" element={<DeliverableDetail />} />
             <Route path="/agents" element={<Agents />} />

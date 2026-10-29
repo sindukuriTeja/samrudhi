@@ -178,17 +178,36 @@ def get_agent_detail(agent_id: str, request: Request):
 
 @router.post("/agents/{agent_id}/run")
 def run_agent_adhoc(agent_id: str, body: AgentRunIn, request: Request):
+    """Execute ANY registered agent (all 194) on a deliverable."""
     a = get_agent(agent_id)
     if not a:
         raise HTTPException(404, "agent not found")
     try:
-        if a.stage is None:
-            return request.app.state.engine.run_executive(agent_id,
-                                                          body.deliverable_id)
         return request.app.state.engine.run_agent_adhoc(agent_id,
                                                         body.deliverable_id)
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+# --------------------------------------------------------------------------- #
+# Workforce cycle (run the full 194-agent workforce)
+# --------------------------------------------------------------------------- #
+class WorkforceCycleIn(BaseModel):
+    deliverable_id: str
+
+
+@router.post("/workforce/cycle")
+def start_workforce_cycle(body: WorkforceCycleIn, request: Request):
+    """Start a full workforce cycle: every registered agent works once."""
+    try:
+        return request.app.state.workforce.start(body.deliverable_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/workforce/cycle")
+def workforce_cycle_status(request: Request):
+    return request.app.state.workforce.status()
 
 
 # --------------------------------------------------------------------------- #

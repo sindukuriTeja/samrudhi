@@ -132,8 +132,20 @@ CREATE TABLE IF NOT EXISTS chat (
     ts REAL
 );
 
+CREATE TABLE IF NOT EXISTS workforce_cycles (
+    id TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    total_agents INTEGER DEFAULT 0,
+    completed_agents INTEGER DEFAULT 0,
+    failed_agents INTEGER DEFAULT 0,
+    started_at REAL,
+    finished_at REAL,
+    summary TEXT
+);
+
 CREATE INDEX IF NOT EXISTS idx_runs_deliverable ON runs(deliverable_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_deliverable ON ledger(deliverable_id);
+CREATE INDEX IF NOT EXISTS idx_cycles_started ON workforce_cycles(started_at);
 """
 
 
@@ -483,6 +495,44 @@ class Database:
         with self._connect() as conn:
             return self._rows(conn.execute(
                 "SELECT * FROM chat ORDER BY ts DESC LIMIT ?", (limit,)).fetchall())[::-1]
+
+    # ---------- workforce cycles ----------
+    def create_cycle(self, total_agents: int) -> dict:
+        cid = self.new_id("CYC")
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO workforce_cycles (id, status, total_agents, started_at)"
+                " VALUES (?,?,?,?)",
+                (cid, "running", total_agents, self.now()),
+            )
+        return self.get_cycle(cid)  # type: ignore[return-value]
+
+    def get_cycle(self, cid: str) -> dict | None:
+        with self._connect() as conn:
+            r = conn.execute("SELECT * FROM workforce_cycles WHERE id=?", (cid,)).fetchone()
+        return dict(r) if r else None
+
+    def list_cycles(self, limit: int = 20) -> list[dict]:
+        with self._connect() as conn:
+            return self._rows(conn.execute(
+                "SELECT * FROM workforce_cycles ORDER BY started_at DESC LIMIT ?",
+                (limit,)).fetchall())
+
+    def bump_cycle(self, cid: str, completed: int = 0, failed: int = 0) -> None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE workforce_cycles SET completed_agents=completed_agents+?,"
+                " failed_agents=failed_agents+? WHERE id=?",
+                (completed, failed, cid),
+            )
+
+    def finish_cycle(self, cid: str, status: str, summary: str = "") -> dict | None:
+        with self._connect() as conn:
+            conn.execute(
+                "UPDATE workforce_cycles SET status=?, finished_at=?, summary=? WHERE id=?",
+                (status, self.now(), summary, cid),
+            )
+        return self.get_cycle(cid)
 
     # ---------- stats ----------
     def stats(self) -> dict:

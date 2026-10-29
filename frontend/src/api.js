@@ -51,6 +51,13 @@ export const api = {
     send: (message, agentId) => req('/chat', { method: 'POST', body: JSON.stringify({ message, agent_id: agentId }) }),
     history: () => req('/chat'),
   },
+  workforce: {
+    start: (deliverableId) => req('/workforce/cycle', { method: 'POST', body: JSON.stringify({ deliverable_id: deliverableId }) }),
+    status: () => req('/workforce/cycle'),
+  },
+  events: {
+    history: (limit = 100) => req(`/events/history?limit=${limit}`),
+  },
 }
 
 export function fmtTime(ts) {

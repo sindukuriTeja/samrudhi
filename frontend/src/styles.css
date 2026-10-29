@@ -314,3 +314,67 @@ tbody tr:hover { background: rgba(45, 212, 191, 0.04); }
 @keyframes slideup { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
 .section-gap { margin-top: 22px; }
 .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+/* ---------------- Live Operations ---------------- */
+.live-feed { display: flex; flex-direction: column; }
+.live-row {
+  display: flex; gap: 10px; padding: 8px 6px;
+  border-bottom: 1px solid rgba(34, 48, 79, 0.4);
+  border-left: 3px solid transparent;
+  animation: livein 0.3s ease;
+}
+.live-row:last-child { border-bottom: none; }
+@keyframes livein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.live-row-new { background: rgba(59, 130, 246, 0.06); }
+.live-icon {
+  width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+}
+.ev-blue   { border-left-color: var(--blue); }
+.ev-blue .live-icon   { background: rgba(59,130,246,0.15); color: var(--blue); }
+.ev-green  { border-left-color: var(--green); }
+.ev-green .live-icon  { background: rgba(52,211,153,0.15); color: var(--green); }
+.ev-red    { border-left-color: var(--red); }
+.ev-red .live-icon    { background: rgba(248,113,113,0.15); color: var(--red); }
+.ev-amber  { border-left-color: var(--amber); }
+.ev-amber .live-icon  { background: rgba(251,191,36,0.15); color: var(--amber); }
+.ev-violet { border-left-color: var(--violet); }
+.ev-violet .live-icon { background: rgba(139,92,246,0.15); color: var(--violet); }
+.ev-dim    { border-left-color: var(--border-2); }
+.ev-dim .live-icon    { background: var(--panel-3); color: var(--text-faint); }
+.live-detail { font-size: 12.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-meta { display: flex; gap: 8px; align-items: center; margin-top: 2px; font-size: 10.5px; color: var(--text-faint); }
+.live-tag {
+  background: var(--panel-3); border-radius: 4px; padding: 0 5px;
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px;
+}
+.live-time { margin-left: auto; font-family: var(--mono); }
+.live-feed-compact .live-row { padding: 5px 4px; }
+
+/* ---------------- Agent status grid ---------------- */
+.agent-grid { display: flex; flex-direction: column; gap: 12px; }
+.agent-grid-dept-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.8px;
+  color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px;
+}
+.agent-grid-cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 5px; }
+.agent-cell {
+  position: relative; display: flex; align-items: center; gap: 6px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 5px 7px; text-decoration: none;
+  transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+}
+.agent-cell:hover { border-color: var(--border-2); background: var(--panel-3); }
+.agent-cell-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; }
+.agent-cell-name { font-size: 11px; font-weight: 600; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-cell-aps { margin-left: auto; font-family: var(--mono); font-size: 9.5px; color: var(--teal); }
+.agent-cell-working { border-color: rgba(59,130,246,0.6); background: rgba(59,130,246,0.1); box-shadow: 0 0 12px rgba(59,130,246,0.25); }
+.agent-cell-working .agent-cell-dot { background: var(--blue); animation: pulse 1s infinite; }
+.agent-cell-working .agent-cell-name { color: var(--text); }
+.agent-cell-done { border-color: rgba(52,211,153,0.35); }
+.agent-cell-done .agent-cell-dot { background: var(--green); }
+.agent-cell-done .agent-cell-name { color: var(--text-dim); }
+.agent-cell-failed { border-color: rgba(248,113,113,0.5); background: rgba(248,113,113,0.08); }
+.agent-cell-failed .agent-cell-dot { background: var(--red); }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }

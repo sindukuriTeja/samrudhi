@@ -25,8 +25,8 @@ class MockEngine:
         self.temperature = temperature
         self.max_tokens = max_tokens
 
-    def _rng(self, did: str, stage: str) -> random.Random:
-        return random.Random(_seed(did, stage, self.model))
+    def _rng(self, did: str, stage: str, agent_id: str = "") -> random.Random:
+        return random.Random(_seed(did, stage, agent_id, self.model))
 
     # ------------------------------------------------------------------ #
     def generate(self, prompt: str, system: str = "",
@@ -44,7 +44,7 @@ class MockEngine:
         tone = client.get("tone", "warm, trustworthy, professional")
         audience = client.get("audience", "patients and their families")
         channels = client.get("channels", "Instagram, Facebook")
-        rnd = self._rng(did, stage)
+        rnd = self._rng(did, stage, ctx.get("agent", {}).get("id", ""))
 
         builders = {
             "brief": self._brief,
@@ -60,10 +60,16 @@ class MockEngine:
             "report": self._report,
             "improvement": self._improvement,
             "executive": self._executive,
+            "role": self._role,
             "chat": self._chat,
         }
         fn = builders.get(stage, self._generic)
-        text = fn(rnd, title, topic, ctype, name, spec, geo, tone, audience, channels)
+        if stage == "role":
+            text = fn(rnd, title, topic, ctype, name, spec, geo, tone,
+                      audience, channels, ctx)
+        else:
+            text = fn(rnd, title, topic, ctype, name, spec, geo, tone,
+                      audience, channels)
         tokens_in = max(40, len((system + prompt)) // 4)
         tokens_out = max(40, len(text) // 4)
         return LLMResult(
@@ -460,6 +466,62 @@ ledger and triggers controlled release by Prakash.
 ## Watch items
 - Monitor cost-per-deliverable against the pilot baseline.
 - Track first-pass acceptance rate toward the ≥90% pilot exit target."""
+
+    def _role(self, r, title, topic, ctype, name, spec, geo, tone,
+              audience, channels, ctx):
+        """Role-aware work output for any of the 194 registered agents.
+
+        Deterministic per (agent, deliverable) so repeated runs are stable,
+        while different agents produce different, role-specific content.
+        """
+        agent = ctx.get("agent") or {}
+        aid = agent.get("id", "SAM-AG-000")
+        aname = agent.get("name", "Agent")
+        role = agent.get("role", "Functional role")
+        dept = agent.get("department", "")
+        reports = agent.get("reports_to", "the accountable lead")
+        kpis = agent.get("kpis") or []
+        stage = ctx.get("stage_label", "role work")
+        # seed a second RNG on the agent id so each agent's output differs
+        ar = random.Random(_seed(aid, ctx.get("deliverable_id", "DLV-0"), "role-v1"))
+        kpi_rows = "\n".join(
+            f"| {k} | {'On track' if ar.random() > 0.15 else 'Watch'} |"
+            for k in kpis[:4]) or "| (no KPIs registered) | — |"
+        actions = r.sample([
+            f"Reviewed the current {ctype} workstream for {name} and validated it against the approved brief.",
+            f"Cross-checked {topic} outputs for {name} against department standards and flagged nothing material.",
+            f"Updated the {role} register with this cycle's evidence and handoff notes for {reports}.",
+            f"Prepared a readiness note for {name}'s {topic} asset, confirming scope, guardrails and next owner.",
+            f"Ran a spot-check on {name} deliverables in {geo}; findings logged to the unified feedback ledger.",
+        ], 3)
+        watch = r.choice([
+            "No material risks identified this cycle.",
+            "Monitor cost-per-deliverable against the pilot baseline.",
+            "Track first-pass acceptance toward the ≥90% target.",
+            "Watch SLA headroom on the next intake batch.",
+        ])
+        return f"""# {role} — Cycle Work Note
+
+**Agent:** {aname} ({aid}) · **Department:** {dept}
+**Cycle context:** {name} ({spec}, {geo}) · asset "{title}" ({ctype}, {topic})
+
+## Work performed this cycle
+{chr(10).join('- ' + a for a in actions)}
+
+## KPI check (this cycle)
+| KPI | Status |
+|-----|--------|
+{kpi_rows}
+
+## Output & handoff
+- Output produced to the defined standard and handed to **{reports}**.
+- Only the approved {name} client context was used (cross-client isolation held).
+- No clinical claims, outcome guarantees or unverified sources introduced.
+
+## Watch items
+- {watch}
+
+**Status:** {stage} complete for this cycle. Ready for the next pipeline event or human review."""
 
     def _chat(self, r, title, topic, ctype, name, spec, geo, tone, audience, channels):
         return (f"Here's a quick status: {title} is moving through the pipeline. "

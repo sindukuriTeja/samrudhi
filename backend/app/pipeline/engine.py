@@ -24,6 +24,7 @@ import threading
 from ..agents.registry import Agent, agents_by_stage, get_agent
 from ..agents.runtime import AgentRuntime
 from ..db import Database
+from ..events import get_event_bus
 from ..sapi.scorecard import _check_critical_gates
 
 STAGES = [
@@ -39,6 +40,7 @@ class PipelineEngine:
     def __init__(self, db: Database, runtime: AgentRuntime):
         self.db = db
         self.runtime = runtime
+        self.bus = get_event_bus()
         self._active: set[str] = set()
         self._lock = threading.Lock()
 
@@ -98,6 +100,9 @@ class PipelineEngine:
                                            status="running")
                 self.db.log(deliverable_id, "Pravahika", "stage.start",
                             f"stage={stage}")
+                self.bus.emit("stage.start", f"Stage: {stage}",
+                              deliverable_id=deliverable_id,
+                              stage=stage, agent="Pravahika")
                 runs = self.runtime.run_stage(stage, d, self._client(d))
                 # gate check after QA/assurance
                 if stage in ("qa", "assurance"):
@@ -106,10 +111,16 @@ class PipelineEngine:
                         return
                 self.db.log(deliverable_id, "Pravahika", "stage.complete",
                             f"stage={stage} runs={len(runs)}")
+                self.bus.emit("stage.complete",
+                              f"Stage {stage} complete ({len(runs)} runs)",
+                              deliverable_id=deliverable_id, stage=stage,
+                              agent="Pravahika")
         except Exception as e:  # noqa: BLE001
             self.db.update_deliverable(deliverable_id, status="failed",
                                        error=str(e))
             self.db.log(deliverable_id, "Pravahika", "pipeline.error", str(e))
+            self.bus.emit("pipeline.failed", f"Pipeline error: {e}",
+                          deliverable_id=deliverable_id, error=str(e))
         finally:
             with self._lock:
                 self._active.discard(deliverable_id)
@@ -135,6 +146,8 @@ class PipelineEngine:
             self.db.update_deliverable(deliverable_id, status="failed",
                                        error=str(e))
             self.db.log(deliverable_id, "Pravahika", "pipeline.error", str(e))
+            self.bus.emit("pipeline.failed", f"Pipeline error: {e}",
+                          deliverable_id=deliverable_id, error=str(e))
         finally:
             with self._lock:
                 self._active.discard(deliverable_id)
@@ -192,6 +205,10 @@ class PipelineEngine:
                                    current_stage="approval")
         self.db.log(deliverable_id, "Mitra", "approval.requested",
                     f"approval_id={approval['id']}")
+        self.bus.emit("approval.requested",
+                      "Pipeline reached the HUMAN APPROVAL GATE — decision required",
+                      deliverable_id=deliverable_id, agent_id="SAM-AG-004",
+                      name="Mitra", approval_id=approval["id"])
 
     # ------------------------------------------------------------------ #
     def approve(self, deliverable_id: str, reviewer: str, notes: str = "") -> dict:

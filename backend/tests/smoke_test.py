@@ -134,6 +134,67 @@ def main():
     assert d3["status"] == "blocked", d3["status"]
     print(f"critical gate: ✓ (status=blocked, error={d3['error']})")
 
+    # ---- all 194 agents are executable (previously only 24 were) ----
+    print("\n== full workforce cycle (all agents) ==")
+    from app.agents.registry import AGENTS
+    from app.pipeline.workforce import WorkforceEngine
+    wf = WorkforceEngine(db, runtime)
+    d4 = db.create_deliverable(client_id=client["id"],
+                               title="Workforce cycle test",
+                               content_type="static post",
+                               topic="full workforce", brief={})
+    cycle = wf.start(d4["id"])
+    # wait for the cycle itself
+    t0 = time.time()
+    while time.time() - t0 < 300:
+        c = db.get_cycle(cycle["id"])
+        if c["status"] in ("completed", "failed"):
+            break
+        time.sleep(0.5)
+    c = db.get_cycle(cycle["id"])
+    assert c["status"] == "completed", f"cycle {c['status']}: {c['summary']}"
+    assert c["completed_agents"] == len(AGENTS), c
+    assert c["failed_agents"] == 0, c
+    print(f"workforce cycle: ✓ ({c['completed_agents']}/{c['total_agents']} agents, "
+          f"{c['failed_agents']} failed)")
+
+    # every agent now has a scorecard
+    from app.sapi.scorecard import agent_scorecard
+    scored = [a.id for a in AGENTS if agent_scorecard(db, a.id)["runs"] > 0]
+    assert len(scored) == len(AGENTS), f"only {len(scored)} agents scored"
+    print(f"scorecards: ✓ ({len(scored)}/{len(AGENTS)} agents have runs)")
+
+    # a previously-unexecutable agent produced role output
+    run = db.list_runs(agent_id="SAM-AG-116", deliverable_id=d4["id"])[0]
+    assert run["stage"] == "role" and run["status"] == "completed"
+    print(f"role execution: ✓ (SAM-AG-116 ran stage='role')")
+
+    # event bus: subscribe live, run a second cycle, drain until cycle.done
+    from app.events import get_event_bus
+    bus = get_event_bus()
+    q = bus.subscribe()
+    d5 = db.create_deliverable(client_id=client["id"],
+                               title="Event stream test",
+                               content_type="static post",
+                               topic="events", brief={})
+    wf.start(d5["id"])
+    captured = []
+    t0 = time.time()
+    while time.time() - t0 < 300:
+        try:
+            e = q.get_nowait()
+            captured.append(e)
+            if e["type"] == "cycle.done":
+                break
+        except Exception:
+            time.sleep(0.2)
+    types = {e["type"] for e in captured}
+    for needed in ("cycle.start", "cycle.agent.start", "cycle.agent.done",
+                   "cycle.done", "agent.start"):
+        assert needed in types, f"missing event type {needed} (got {sorted(types)})"
+    shown = sorted(t for t in types if t.startswith(("cycle", "agent")))
+    print(f"event stream: ✓ ({len(captured)} live events; types: {shown})")
+
     print("\nALL SMOKE TESTS PASSED")
 
 

@@ -4,9 +4,13 @@ An orchestrated digital workforce for **healthcare content production** (pilot).
 SAMRUDHI runs a **194-agent digital workforce** (11 departments) that takes a
 client brief and produces review-ready social content — with a **human
 approval gate** and a **critical safety gate** (no unauthorised medical
-claims, no outcome guarantees) built in. The 24-role pilot pod is wired into
-the content pipeline; the remaining 170 roles are registered as logical
-positions on the shared model runtime.
+claims, no outcome guarantees) built in.
+
+**Every one of the 194 agents is executable.** The 24-role pilot pod is wired
+into the content pipeline; the remaining 170 roles each run their own role
+work cycle. A **full workforce cycle** runs all 194 agents in one pass, and a
+**real-time event stream** (Server-Sent Events) pushes every agent, stage,
+gate and decision to the Command Centre live.
 
 ```
 brief → plan → research → draft → creative → QA → assurance → [HUMAN GATE] → publish → report
@@ -16,12 +20,14 @@ brief → plan → research → draft → creative → QA → assurance → [HUM
 
 | Piece | Where | What it does |
 |---|---|---|
-| **Agent runtime** | `backend/app/agents/` | 194 named agents across 11 departments (Shruti, Yojana, Anvesh, Lekha, Chitra, Shuddhi, Pariksha, Gunvatta, Swasthya, Mitra, Prakash, …) each with a role, prompt, and output field; the 24-role pilot pod is wired into the pipeline |
+| **Agent runtime** | `backend/app/agents/` | 194 named agents across 11 departments (Shruti, Yojana, Anvesh, Lekha, Chitra, Shuddhi, Pariksha, Gunvatta, Swasthya, Mitra, Prakash, …) each with a role, prompt, and KPIs. **All 194 are executable** — pipeline agents run their stage, executives run briefs, everyone else runs a role work cycle |
 | **Pipeline engine** | `backend/app/pipeline/` | 11-stage state machine; pauses at the approval gate for a human decision; blocks on failed safety gates |
+| **Workforce cycle engine** | `backend/app/pipeline/workforce.py` | Runs the **full 194-agent workforce** in one operational cycle on a deliverable, with per-agent progress, SAPI evaluation and live events |
+| **Real-time event bus** | `backend/app/events.py` | In-process pub/sub; every pipeline/workforce/approval event is streamed over **SSE** (`/api/events`) and mirrored to the audit ledger |
 | **LLM router** | `backend/app/llm/` | Uses local **Ollama**; automatically falls back to a deterministic **mock engine** when the model is unavailable, so the system never dies |
-| **SAPI scorecards** | `backend/app/sapi/` | Per-agent performance scores (reliability, quality, efficiency, business, adaptability) with critical-gate checks |
-| **API** | `backend/app/api/` | FastAPI — clients, deliverables, runs, approvals, agents, SAPI, feedback, chat, stats |
-| **Command Centre UI** | `frontend/` | React (Vite) — Dashboard, Deliverables, Agents, Approvals, Performance, Chat, Clients |
+| **SAPI scorecards** | `backend/app/sapi/` | Per-agent performance scores (reliability, quality, efficiency, business, adaptability) with critical-gate checks — now scored for all 194 agents |
+| **API** | `backend/app/api/` | FastAPI — clients, deliverables, runs, approvals, agents, workforce cycles, SAPI, feedback, chat, stats, live events |
+| **Command Centre UI** | `frontend/` | React (Vite) — Dashboard, **Live Operations** (real-time feed + 194-agent status board + workforce controls), Deliverables, Agents, Approvals, Performance, Chat, Clients |
 | **Docker stack** | `docker-compose.yml` | ollama + backend + frontend, one command |
 
 ### The 11 departments (194 canonical agents)
@@ -43,9 +49,11 @@ Per the Digital Workforce Master Organisation Register (Document 01C):
 | GOV | Independent Assurance, Compliance & Agent Performance | 20 | Satya (AI Chief Assurance Agent) |
 
 The **24-role pilot pod** (marked in the registry with a pipeline `stage`)
-executes the content lifecycle; the other 170 roles are registered as
-logical positions — same identity/KPI model, invoked when their workflow is
-activated.
+executes the content lifecycle. The other 170 roles are also fully
+executable: each runs a **role work cycle** — a scoped work note against its
+registered KPIs and reporting line. A **full workforce cycle** runs all 194
+agents in one pass (`POST /api/workforce/cycle`), and every run is scored by
+SAPI and streamed live.
 
 ## Quick start (Docker — recommended)
 
@@ -149,8 +157,12 @@ Copy `.env.example` to `.env` and edit (all variables are optional):
 | `GET /api/deliverables/{id}/ledger` | Immutable audit ledger |
 | `GET /api/approvals` | Queue awaiting human decision |
 | `GET /api/agents`, `GET /api/agents/{id}` | Registry + per-agent detail |
-| `POST /api/agents/{id}/run` | Run a single agent |
-| `GET /api/sapi/scorecards` | Per-agent SAPI performance |
+| `POST /api/agents/{id}/run` | Run **any** of the 194 agents on a deliverable |
+| `POST /api/workforce/cycle` | Start a full 194-agent workforce cycle on a deliverable |
+| `GET /api/workforce/cycle` | Current cycle progress + history |
+| `GET /api/events` | **Real-time SSE stream** of all pipeline/workforce/approval events |
+| `GET /api/events/history` | Recent event buffer (for late joiners) |
+| `GET /api/sapi/scorecards` | Per-agent SAPI performance (all 194) |
 | `GET /api/feedback` | Reviewer feedback log |
 | `POST /api/chat` | Chat with the system (routed to an agent) |
 | `GET /api/stats` | Aggregate stats (runs, tokens, cost) |
@@ -174,6 +186,27 @@ Copy `.env.example` to `.env` and edit (all variables are optional):
 "guarantees a 100% cure rate") sets the deliverable to `blocked` **before**
 it ever reaches a human reviewer.
 
+## Real-time operations
+
+The backend publishes every lifecycle event to an in-process **event bus**
+(`backend/app/events.py`) and streams it over **Server-Sent Events** at
+`GET /api/events`. Event types include `pipeline.start/complete/failed`,
+`stage.start/complete`, `gate.blocked`, `approval.requested/decided`,
+`agent.start/done/failed`, and the workforce-cycle set
+`cycle.start / cycle.agent.start / cycle.agent.done / cycle.done`.
+
+Every event is also written to the **audit ledger**, so the live feed and the
+immutable history always agree. The Command Centre's **Live Operations** view
+renders the feed in real time, shows a 194-agent status board that lights up
+as each agent completes, and lets you trigger a full workforce cycle on any
+deliverable.
+
+To watch the raw stream:
+
+```bash
+curl -N http://localhost:8000/api/events
+```
+
 ## Project layout
 
 ```
@@ -183,18 +216,21 @@ samrudhi/
 ├── backend/
 │   ├── app/
 │   │   ├── agents/         # registry (194 agents, 11 depts) + runtime
-│   │   ├── pipeline/       # 11-stage engine
+│   │   ├── pipeline/       # 11-stage engine + workforce cycle engine
 │   │   ├── llm/            # ollama client, mock engine, router
 │   │   ├── sapi/           # scorecards + critical gates
 │   │   ├── api/            # FastAPI routes
+│   │   ├── events.py       # real-time event bus (SSE)
 │   │   ├── db.py           # SQLite persistence
 │   │   └── main.py         # app factory
 │   ├── scripts/seed.py
 │   ├── tests/smoke_test.py
 │   └── Dockerfile
 ├── frontend/
-│   ├── src/                # React + Vite (9 views)
-│   ├── nginx.conf          # SPA fallback + /api proxy
+│   ├── src/                # React + Vite (10 views incl. Live Operations)
+│   │   ├── components/     # LiveFeed, WorkforcePanel, AgentStatusBoard
+│   │   └── useEventStream.js
+│   ├── nginx.conf          # SPA fallback + /api + SSE proxy
 │   └── Dockerfile
 └── refs/                   # source-document summaries
 ```
