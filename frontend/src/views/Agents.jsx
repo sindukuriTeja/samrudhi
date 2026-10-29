@@ -26,7 +26,7 @@ export default function Agents() {
       <div className="page-head">
         <div>
           <div className="page-title">Agent Registry</div>
-          <div className="page-sub">24 canonical pilot roles · shared model runtime, distinct identities, permissions & KPIs</div>
+          <div className="page-sub">194 canonical roles across 11 departments · 24 wired into the content pipeline · shared model runtime, distinct identities, permissions & KPIs</div>
         </div>
         <div className="flex">
           <select className="select" style={{ width: 150 }} value={tier} onChange={e => setTier(e.target.value)}>

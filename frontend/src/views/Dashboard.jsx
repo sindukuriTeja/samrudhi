@@ -53,7 +53,7 @@ export default function Dashboard() {
       <div className="page-head">
         <div>
           <div className="page-title">Command Centre</div>
-          <div className="page-sub">SAMRUDHI Agentic OS · Healthcare content pilot · 24-agent digital workforce</div>
+          <div className="page-sub">SAMRUDHI Agentic OS · Healthcare content pilot · 194-agent digital workforce</div>
         </div>
         <Link to="/deliverables" className="btn btn-primary">+ New Deliverable</Link>
       </div>

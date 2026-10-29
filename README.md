@@ -1,10 +1,12 @@
 # SAMRUDHI Agentic AI — Command Centre
 
 An orchestrated digital workforce for **healthcare content production** (pilot).
-SAMRUDHI runs a 24-agent pipeline that takes a client brief and produces
-review-ready social content — with a **human approval gate** and a
-**critical safety gate** (no unauthorised medical claims, no outcome
-guarantees) built in.
+SAMRUDHI runs a **194-agent digital workforce** (11 departments) that takes a
+client brief and produces review-ready social content — with a **human
+approval gate** and a **critical safety gate** (no unauthorised medical
+claims, no outcome guarantees) built in. The 24-role pilot pod is wired into
+the content pipeline; the remaining 170 roles are registered as logical
+positions on the shared model runtime.
 
 ```
 brief → plan → research → draft → creative → QA → assurance → [HUMAN GATE] → publish → report
@@ -14,13 +16,36 @@ brief → plan → research → draft → creative → QA → assurance → [HUM
 
 | Piece | Where | What it does |
 |---|---|---|
-| **Agent runtime** | `backend/app/agents/` | 24 named agents (Shruti, Yojana, Anvesh, Lekha, Chitra, Shuddhi, Pariksha, Gunvatta, Swasthya, Mitra, Prakash, …) each with a role, prompt, and output field |
+| **Agent runtime** | `backend/app/agents/` | 194 named agents across 11 departments (Shruti, Yojana, Anvesh, Lekha, Chitra, Shuddhi, Pariksha, Gunvatta, Swasthya, Mitra, Prakash, …) each with a role, prompt, and output field; the 24-role pilot pod is wired into the pipeline |
 | **Pipeline engine** | `backend/app/pipeline/` | 11-stage state machine; pauses at the approval gate for a human decision; blocks on failed safety gates |
 | **LLM router** | `backend/app/llm/` | Uses local **Ollama**; automatically falls back to a deterministic **mock engine** when the model is unavailable, so the system never dies |
 | **SAPI scorecards** | `backend/app/sapi/` | Per-agent performance scores (reliability, quality, efficiency, business, adaptability) with critical-gate checks |
 | **API** | `backend/app/api/` | FastAPI — clients, deliverables, runs, approvals, agents, SAPI, feedback, chat, stats |
 | **Command Centre UI** | `frontend/` | React (Vite) — Dashboard, Deliverables, Agents, Approvals, Performance, Chat, Clients |
 | **Docker stack** | `docker-compose.yml` | ollama + backend + frontend, one command |
+
+### The 11 departments (194 canonical agents)
+
+Per the Digital Workforce Master Organisation Register (Document 01C):
+
+| Code | Department | Agents | Head |
+|---|---|---|---|
+| CEO | CEO Office & Enterprise Strategy | 6 | Arjun (AI CEO) |
+| SAL | Sales & Business Development | 13 | Vikram (AI Chief Growth Officer) |
+| MKT | Samrudhi Brand & Marketing | 16 | Prerna (Head of Brand & Marketing) |
+| CEX | Client Experience & Account Management | 16 | Mitra (AI Chief Client Experience Officer) |
+| OPS | Operations & Delivery Management | 18 | Daksh (AI COO) |
+| CRT | Creative, Content & Social Media | 22 | Aarya (AI Chief Creative Officer) |
+| PMG | Paid Media, SEO & Growth Marketing | 20 | Tejas (AI Head of Performance & Growth) |
+| DAT | Analytics, Intelligence & Reporting | 19 | Medha (AI Chief Data & Intelligence Officer) |
+| FIN | Finance & Administration | 20 | Niti (AI CFO) |
+| TEC | Technology, MCP & AgentOps | 24 | Sutra (AI CTO) |
+| GOV | Independent Assurance, Compliance & Agent Performance | 20 | Satya (AI Chief Assurance Agent) |
+
+The **24-role pilot pod** (marked in the registry with a pipeline `stage`)
+executes the content lifecycle; the other 170 roles are registered as
+logical positions — same identity/KPI model, invoked when their workflow is
+activated.
 
 ## Quick start (Docker — recommended)
 
@@ -157,7 +182,7 @@ samrudhi/
 ├── .env.example
 ├── backend/
 │   ├── app/
-│   │   ├── agents/         # registry (24 agents) + runtime
+│   │   ├── agents/         # registry (194 agents, 11 depts) + runtime
 │   │   ├── pipeline/       # 11-stage engine
 │   │   ├── llm/            # ollama client, mock engine, router
 │   │   ├── sapi/           # scorecards + critical gates
