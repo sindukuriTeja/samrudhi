@@ -210,10 +210,13 @@ def main():
             f"guardrails not last for {aid}"
     enriched_total = sum(1 for a in _AGENTS if a.enriched)
     assert enriched_total == len(ENRICHMENTS), (enriched_total, len(ENRICHMENTS))
+    # full coverage: every one of the 194 agents carries specialist craft
+    assert enriched_total == len(_AGENTS) == 194, (
+        f"expected all 194 agents enriched, got {enriched_total}")
     # craft block sits between base prompt and guardrails
     lekha = by_id["SAM-AG-082"]
     assert len(lekha.system_prompt) > 2000, "enriched prompt suspiciously short"
-    print(f"enrichments: ✓ ({enriched_total} agents enriched; guardrails last; "
+    print(f"enrichments: ✓ ({enriched_total}/194 agents enriched; guardrails last; "
           f"Lekha prompt {len(lekha.system_prompt)} chars)")
 
     print("\nALL SMOKE TESTS PASSED")

@@ -112,7 +112,9 @@ curl -s localhost:8000/api/sapi/scorecards | jq 'length'   # expect 194
 
 ## 6. Enrichment spot-check
 
-The 44 enriched agents carry a specialist craft block. Verify one end to end:
+All 194 agents carry a specialist craft block (44 core in
+`enrichments.py`, 150 additional in `enrichments_extra.py`). Verify one end
+to end:
 
 ```bash
 curl -s localhost:8000/api/agents/SAM-AG-082 | jq '{name, enriched, prompt_len: (.system_prompt|length)}'
@@ -126,14 +128,23 @@ and score first-pass acceptance. **Pilot target:** enriched run reaches
 
 ## 7. Known template families (originality check)
 
-`check-agent-originality.py` flags near-duplicate prompt skeletons. These are
-**known and accepted** for the pilot (department heads and CEX team share a
-deliberate common structure):
+`check-agent-originality.py` flags near-duplicate prompt skeletons. Roles that
+sit in the **same department** deliberately share an operational skeleton
+(they run the same stage/work-cycle, differentiated by their role-specific
+craft block). The specialist-craft blocks lower the full-prompt overlap of
+every agent, so the families that once read ~91% (department heads
+SAM-AG-005/006/008) and ~82% (CEX SAM-AG-045/048–056) now sit **below** the
+40% FAIL threshold. The current top of the chart is the next tier of
+within-department pairs, all **known and accepted** for the pilot:
 
-- SAM-AG-005 / 006 / 008 — department-head skeleton (~91% overlap)
-- SAM-AG-045 / 048–056 — CEX responsibility skeleton (~82% overlap)
+- SAM-AG-109 / 111–115 — Paid Media, SEO & Growth Marketing (~54%)
+- SAM-AG-118 / 127 / 130 / 133 — Analytics, Intelligence & Reporting (~53%)
+- SAM-AG-137 / 138 / 139 / 145 — Finance & Administration (~53%)
+- SAM-AG-023 / 026 — Sales & Business Development (~53%)
+- SAM-AG-053 / 054 — Client Experience & Account Management (~53%)
 
-Treat any **new** FAIL line (a pair not in these two families) as a real
+Treat any **new** FAIL line (a pair **across** departments, or a within-
+department pair that jumps well above its family's baseline) as a real
 duplicate to resolve before merge.
 
 ## 8. Pilot exit checklist

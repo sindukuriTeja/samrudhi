@@ -814,3 +814,18 @@ def enrich(agent_id: str) -> str:
 def enriched_ids() -> list[str]:
     """Canonical IDs that carry a specialist-craft enrichment (sorted)."""
     return sorted(ENRICHMENTS)
+
+
+# --------------------------------------------------------------------------- #
+# Part 2 — the remaining 150 agents (executives, CEX, CRT, DAT, FIN, GOV,
+# MKT, OPS, PMG, SAL, TEC). Imported here (not at the top) because
+# ``enrichments_extra`` imports ``_block`` from this module; merging at the
+# bottom gives a single ``enrich()`` lookup covering all 194 agents.
+# --------------------------------------------------------------------------- #
+from .enrichments_extra import EXTRA_ENRICHMENTS  # noqa: E402
+
+assert not (set(EXTRA_ENRICHMENTS) & set(ENRICHMENTS)), (
+    "enrichment overlap between part 1 and part 2: "
+    + ", ".join(sorted(set(EXTRA_ENRICHMENTS) & set(ENRICHMENTS)))
+)
+ENRICHMENTS.update(EXTRA_ENRICHMENTS)

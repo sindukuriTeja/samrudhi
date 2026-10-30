@@ -20,7 +20,7 @@ brief → plan → research → draft → creative → QA → assurance → [HUM
 
 | Piece | Where | What it does |
 |---|---|---|
-| **Agent runtime** | `backend/app/agents/` | 194 named agents across 11 departments (Shruti, Yojana, Anvesh, Lekha, Chitra, Shuddhi, Pariksha, Gunvatta, Swasthya, Mitra, Prakash, …) each with a role, prompt, and KPIs. **All 194 are executable** — pipeline agents run their stage, executives run briefs, everyone else runs a role work cycle. **44 agents carry a specialist-craft enrichment** distilled from the open-source `agency-agents` corpus (see below) |
+| **Agent runtime** | `backend/app/agents/` | 194 named agents across 11 departments (Shruti, Yojana, Anvesh, Lekha, Chitra, Shuddhi, Pariksha, Gunvatta, Swasthya, Mitra, Prakash, …) each with a role, prompt, and KPIs. **All 194 are executable** — pipeline agents run their stage, executives run briefs, everyone else runs a role work cycle. **Every agent carries a specialist-craft enrichment** distilled from the open-source `agency-agents` corpus (see below) |
 | **Pipeline engine** | `backend/app/pipeline/` | 11-stage state machine; pauses at the approval gate for a human decision; blocks on failed safety gates |
 | **Workforce cycle engine** | `backend/app/pipeline/workforce.py` | Runs the **full 194-agent workforce** in one operational cycle on a deliverable, with per-agent progress, SAPI evaluation and live events |
 | **Real-time event bus** | `backend/app/events.py` | In-process pub/sub; every pipeline/workforce/approval event is streamed over **SSE** (`/api/events`) and mirrored to the audit ledger |
@@ -130,7 +130,7 @@ python tests/smoke_test.py
 Runs the full lifecycle in mock mode: pipeline → approval gate → approve →
 publish, plus the rejection path, the critical-safety-gate block path, the
 full 194-agent workforce cycle, the live event stream, and the specialist
-enrichment invariants (all 44 enriched, guardrails last).
+enrichment invariants (all 194 enriched, guardrails last).
 Expected final line: `ALL SMOKE TESTS PASSED`.
 
 ## Configuration
@@ -190,7 +190,7 @@ it ever reaches a human reviewer.
 
 ## Specialist-craft enrichments (agency-agents corpus)
 
-44 of the 194 agents carry a **specialist-craft block** — a distilled,
+**All 194 agents** carry a **specialist-craft block** — a distilled,
 role-specific set of proven practices (decision frameworks, checklists,
 hard-won rules) drawn from the open-source
 [`msitarzewski/agency-agents`](https://github.com/msitarzewski/agency-agents)
@@ -198,15 +198,16 @@ corpus (MIT) and re-authored for healthcare content. The block is appended
 between the base role prompt and the governance guardrails, so the guardrails
 always remain the final authority.
 
-- **Source of truth:** `backend/app/agents/enrichments.py` (keyed by agent ID)
+- **Source of truth:** `backend/app/agents/enrichments.py` (44 core pipeline
+  specialists) merged with `backend/app/agents/enrichments_extra.py` (the
+  remaining 150 roles, keyed by agent ID) — `enrich()` covers the full roster
 - **Vendored corpus:** `vendor/agency-agents/` (provenance + export input)
 - **A/B switch:** `SAMRUDHI_DISABLE_ENRICH=1` turns all enrichments off, for
   enriched-vs-baseline first-pass-acceptance comparison (see the pilot
   runbook, §6)
-- **Coverage:** the core pipeline specialists — research (Anvesh), copy
-  (Lekha), creative (Chitra), QA (Shuddhi/Pariksha), assurance (Gunvatta,
-  Swasthya), plus brand, SEO, paid-media, analytics, and client-experience
-  roles
+- **Coverage:** 194/194 — every role in every department (CEO, C-suite,
+  pipeline specialists, sales, finance, governance, ops, product, tech,
+  client experience)
 
 ### Multi-tool agent export
 
@@ -242,8 +243,9 @@ python3 scripts/check-agent-originality.py SAM-AG-082 # check one
 ```
 
 Exit code 1 = at least one pair at/above the duplicate threshold
-(`ORIGINALITY_FAIL`, default 40%). Known accepted template families (department
-heads; CEX responsibility roles) are documented in the pilot runbook, §7.
+(`ORIGINALITY_FAIL`, default 40%). Known accepted template families
+(within-department role skeletons that are deliberately shared, differentiated
+by their role-specific craft block) are documented in the pilot runbook, §7.
 
 ## Pilot runbook
 
