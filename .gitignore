@@ -1,0 +1,19 @@
+# generated multi-tool agent exports (regenerate: backend/scripts/export_agents.py)
+exports/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# local data
+backend/data/*.db
+backend/data/*.db-journal
+*.sqlite
+
+# node
+node_modules/
+frontend/dist/
+
+# env
+.env

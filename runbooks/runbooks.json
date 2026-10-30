@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "updated": "2026-10-30",
+  "runbooks": [
+    {
+      "id": "pilot-healthcare-content",
+      "title": "Pilot: healthcare content production (end-to-end)",
+      "file": "runbooks/pilot-healthcare-content.md",
+      "owner": "Pilot Lead (human)",
+      "scope": "One real client brief through the full 11-stage pipeline to a human-approved, review-ready deliverable, plus a full 194-agent workforce cycle and the enriched-vs-baseline A/B comparison.",
+      "prerequisites": [
+        "docker compose stack up (ollama, backend, frontend)",
+        "GET /api/health returns ok",
+        "GET /api/agents returns 194 agents",
+        "originality check reviewed (known template families documented)"
+      ],
+      "steps": [
+        "POST /api/clients (pilot client record)",
+        "POST /api/deliverables (pilot brief)",
+        "POST /api/deliverables/{id}/start (11-stage pipeline)",
+        "Watch SSE /api/events + progress + ledger",
+        "Human decision at approval gate (POST /api/deliverables/{id}/decision)",
+        "Optional: POST /api/workforce/cycle for all 194 agents",
+        "A/B: rerun with SAMRUDHI_DISABLE_ENRICH=1 and compare first-pass acceptance",
+        "Negative test: seeded bad claim must be blocked by the safety gate"
+      ],
+      "exit_criteria": [
+        "deliverable published or a recorded, documented rejection",
+        "safety gate blocked the seeded bad claim",
+        "human gate paused the run and the decision is in the ledger",
+        "194 SAPI scorecards present and sane",
+        "enriched-vs-baseline first-pass acceptance measured (target >=90%)",
+        "no new originality-check FAIL outside the documented template families"
+      ],
+      "known_flags": [
+        "SAM-AG-005/006/008 department-head skeleton (~91% prompt overlap) — accepted",
+        "SAM-AG-045/048-056 CEX responsibility skeleton (~82% overlap) — accepted"
+      ]
+    }
+  ]
+}
