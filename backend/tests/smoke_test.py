@@ -195,6 +195,27 @@ def main():
     shown = sorted(t for t in types if t.startswith(("cycle", "agent")))
     print(f"event stream: ✓ ({len(captured)} live events; types: {shown})")
 
+    # ---- specialist-craft enrichments (agency-agents distillation) ----
+    print("\n== enrichments ==")
+    from app.agents.enrichments import ENRICHMENTS, enriched_ids
+    from app.agents.registry import AGENTS as _AGENTS
+    by_id = {a.id: a for a in _AGENTS}
+    assert ENRICHMENTS, "no enrichments defined"
+    for aid in enriched_ids():
+        assert aid in by_id, f"enrichment for unknown agent {aid}"
+        a = by_id[aid]
+        assert a.enriched, f"{aid} not flagged enriched"
+        assert a.system_prompt.rstrip().endswith(
+            "Preserve separation of duties: you do not override independent assurance."), \
+            f"guardrails not last for {aid}"
+    enriched_total = sum(1 for a in _AGENTS if a.enriched)
+    assert enriched_total == len(ENRICHMENTS), (enriched_total, len(ENRICHMENTS))
+    # craft block sits between base prompt and guardrails
+    lekha = by_id["SAM-AG-082"]
+    assert len(lekha.system_prompt) > 2000, "enriched prompt suspiciously short"
+    print(f"enrichments: ✓ ({enriched_total} agents enriched; guardrails last; "
+          f"Lekha prompt {len(lekha.system_prompt)} chars)")
+
     print("\nALL SMOKE TESTS PASSED")
 
 

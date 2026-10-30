@@ -20,7 +20,7 @@ brief → plan → research → draft → creative → QA → assurance → [HUM
 
 | Piece | Where | What it does |
 |---|---|---|
-| **Agent runtime** | `backend/app/agents/` | 194 named agents across 11 departments (Shruti, Yojana, Anvesh, Lekha, Chitra, Shuddhi, Pariksha, Gunvatta, Swasthya, Mitra, Prakash, …) each with a role, prompt, and KPIs. **All 194 are executable** — pipeline agents run their stage, executives run briefs, everyone else runs a role work cycle |
+| **Agent runtime** | `backend/app/agents/` | 194 named agents across 11 departments (Shruti, Yojana, Anvesh, Lekha, Chitra, Shuddhi, Pariksha, Gunvatta, Swasthya, Mitra, Prakash, …) each with a role, prompt, and KPIs. **All 194 are executable** — pipeline agents run their stage, executives run briefs, everyone else runs a role work cycle. **44 agents carry a specialist-craft enrichment** distilled from the open-source `agency-agents` corpus (see below) |
 | **Pipeline engine** | `backend/app/pipeline/` | 11-stage state machine; pauses at the approval gate for a human decision; blocks on failed safety gates |
 | **Workforce cycle engine** | `backend/app/pipeline/workforce.py` | Runs the **full 194-agent workforce** in one operational cycle on a deliverable, with per-agent progress, SAPI evaluation and live events |
 | **Real-time event bus** | `backend/app/events.py` | In-process pub/sub; every pipeline/workforce/approval event is streamed over **SSE** (`/api/events`) and mirrored to the audit ledger |
@@ -128,7 +128,9 @@ python tests/smoke_test.py
 ```
 
 Runs the full lifecycle in mock mode: pipeline → approval gate → approve →
-publish, plus the rejection path and the critical-safety-gate block path.
+publish, plus the rejection path, the critical-safety-gate block path, the
+full 194-agent workforce cycle, the live event stream, and the specialist
+enrichment invariants (all 44 enriched, guardrails last).
 Expected final line: `ALL SMOKE TESTS PASSED`.
 
 ## Configuration
@@ -186,6 +188,72 @@ Copy `.env.example` to `.env` and edit (all variables are optional):
 "guarantees a 100% cure rate") sets the deliverable to `blocked` **before**
 it ever reaches a human reviewer.
 
+## Specialist-craft enrichments (agency-agents corpus)
+
+44 of the 194 agents carry a **specialist-craft block** — a distilled,
+role-specific set of proven practices (decision frameworks, checklists,
+hard-won rules) drawn from the open-source
+[`msitarzewski/agency-agents`](https://github.com/msitarzewski/agency-agents)
+corpus (MIT) and re-authored for healthcare content. The block is appended
+between the base role prompt and the governance guardrails, so the guardrails
+always remain the final authority.
+
+- **Source of truth:** `backend/app/agents/enrichments.py` (keyed by agent ID)
+- **Vendored corpus:** `vendor/agency-agents/` (provenance + export input)
+- **A/B switch:** `SAMRUDHI_DISABLE_ENRICH=1` turns all enrichments off, for
+  enriched-vs-baseline first-pass-acceptance comparison (see the pilot
+  runbook, §6)
+- **Coverage:** the core pipeline specialists — research (Anvesh), copy
+  (Lekha), creative (Chitra), QA (Shuddhi/Pariksha), assurance (Gunvatta,
+  Swasthya), plus brand, SEO, paid-media, analytics, and client-experience
+  roles
+
+### Multi-tool agent export
+
+Every one of the 194 agents can be exported as a standalone agent definition
+for other AI tooling, in the format each tool expects:
+
+```bash
+cd backend
+python3 scripts/export_agents.py          # → ../exports/
+```
+
+| Tool | Format | Location |
+|---|---|---|
+| Claude Code | `.md` agent | `exports/claude-code/agents/` |
+| Gemini CLI | `.md` agent | `exports/gemini-cli/agents/` |
+| Codex | `.toml` agent | `exports/codex/agents/` |
+| Cursor | `.mdc` rule | `exports/cursor/rules/` |
+
+Plus `exports/manifest.json` (194 entries: id, name, department, KPIs,
+`enriched` flag, per-tool file paths).
+
+### Originality check
+
+Because the workforce is 194 distinct roles, a re-skinned duplicate (new name,
+same method) is easy to miss. The originality checker compares every agent
+prompt against the whole roster using entity-neutralized 8-word shingle
+overlap, so swapping names/identifiers cannot hide a copy:
+
+```bash
+cd backend
+python3 scripts/check-agent-originality.py            # audit all 194
+python3 scripts/check-agent-originality.py SAM-AG-082 # check one
+```
+
+Exit code 1 = at least one pair at/above the duplicate threshold
+(`ORIGINALITY_FAIL`, default 40%). Known accepted template families (department
+heads; CEX responsibility roles) are documented in the pilot runbook, §7.
+
+## Pilot runbook
+
+`runbooks/pilot-healthcare-content.md` is the end-to-end operating procedure
+for a real pilot: client → deliverable → 11-stage run → human gate → publish,
+plus the full 194-agent workforce cycle, the enriched-vs-baseline A/B
+comparison, and the required **negative test** (a seeded bad claim must be
+blocked by the safety gate). `runbooks/runbooks.json` is the machine-readable
+index of all runbooks.
+
 ## Real-time operations
 
 The backend publishes every lifecycle event to an in-process **event bus**
@@ -213,9 +281,14 @@ curl -N http://localhost:8000/api/events
 samrudhi/
 ├── docker-compose.yml      # ollama + backend + frontend
 ├── .env.example
+├── runbooks/
+│   ├── pilot-healthcare-content.md   # end-to-end pilot procedure
+│   └── runbooks.json                 # machine-readable runbook index
+├── vendor/agency-agents/   # vendored reference corpus (MIT, provenance)
+├── exports/                # generated multi-tool agent exports (git-ignorable)
 ├── backend/
 │   ├── app/
-│   │   ├── agents/         # registry (194 agents, 11 depts) + runtime
+│   │   ├── agents/         # registry (194 agents, 11 depts) + runtime + enrichments
 │   │   ├── pipeline/       # 11-stage engine + workforce cycle engine
 │   │   ├── llm/            # ollama client, mock engine, router
 │   │   ├── sapi/           # scorecards + critical gates
@@ -224,6 +297,8 @@ samrudhi/
 │   │   ├── db.py           # SQLite persistence
 │   │   └── main.py         # app factory
 │   ├── scripts/seed.py
+│   ├── scripts/export_agents.py          # 194 agents → 4 tool formats
+│   ├── scripts/check-agent-originality.py
 │   ├── tests/smoke_test.py
 │   └── Dockerfile
 ├── frontend/

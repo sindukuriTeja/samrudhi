@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .enrichments import enrich
+
 
 @dataclass
 class Agent:
@@ -32,6 +34,7 @@ class Agent:
     output_field: str | None = None  # deliverable field it writes
     stage_order: int = 0
     tier: str = "functional"     # executive | functional | evaluation | ops
+    enriched: bool = False       # carries agency-agents specialist craft
 
 
 # --------------------------------------------------------------------------- #
@@ -52,7 +55,9 @@ GOVERNANCE RULES (mandatory for all SAMRUDHI agents):
 """
 
 
-def _sp(mission: str, duties: list, outputs: list, non_negotiable: str) -> str:
+def _sp(agent_id: str, mission: str, duties: list, outputs: list,
+        non_negotiable: str) -> str:
+    craft = enrich(agent_id)
     return (
         "You are operating as a SAMRUDHI AGENTIC AI digital-workforce agent.\n"
         "MISSION: " + mission + "\n\n"
@@ -63,6 +68,7 @@ def _sp(mission: str, duties: list, outputs: list, non_negotiable: str) -> str:
         "headings. Be specific, professional and client-ready. "
         "Ground every clinical statement in provided research; where no "
         "source supports a claim, say so instead of inventing one."
+        + ("\n\n" + craft if craft else "")
         + _GUARDRAILS
     )
 
@@ -76,7 +82,8 @@ def _agent(id, name, position, department, dept_code, role, reports_to,
         autonomy=autonomy, competency_target=competency_target,
         kpis=kpis, stage=stage, output_field=output_field,
         stage_order=stage_order, tier=tier,
-        system_prompt=_sp(mission, duties, outputs, non_negotiable),
+        enriched=bool(enrich(id)),
+        system_prompt=_sp(id, mission, duties, outputs, non_negotiable),
     )
 
 
@@ -2348,4 +2355,5 @@ def to_dict(a: Agent) -> dict:
         "reports_to": a.reports_to, "autonomy": a.autonomy,
         "competency_target": a.competency_target, "kpis": a.kpis,
         "stage": a.stage, "output_field": a.output_field, "tier": a.tier,
+        "enriched": a.enriched,
     }
