@@ -35,6 +35,7 @@ export const api = {
   approvals: { list: (status) => req('/approvals' + (status ? `?status=${status}` : '')) },
   agents: {
     list: () => req('/agents'),
+    status: () => req('/agents/status'),
     get: (id) => req(`/agents/${id}`),
     run: (id, deliverableId) => req(`/agents/${id}/run`, { method: 'POST', body: JSON.stringify({ deliverable_id: deliverableId }) }),
   },

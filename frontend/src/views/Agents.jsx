@@ -12,10 +12,18 @@ const TIER_LABEL = { executive: 'Executive', functional: 'Functional', evaluatio
 
 export default function Agents() {
   const [agents, setAgents] = useState(null)
+  const [status, setStatus] = useState({})
   const [tier, setTier] = useState('')
   const [dept, setDept] = useState('')
 
-  useEffect(() => { api.agents.list().then(setAgents).catch(() => {}) }, [])
+  useEffect(() => {
+    api.agents.list().then(setAgents).catch(() => {})
+    api.agents.status().then(list => {
+      const m = {}
+      list.forEach(s => { m[s.id] = s })
+      setStatus(m)
+    }).catch(() => {})
+  }, [])
   if (!agents) return <div className="empty"><span className="spinner" /> Loading…</div>
 
   const depts = [...new Set(agents.map(a => a.dept_code))]
@@ -57,6 +65,13 @@ export default function Agents() {
                 <span className="chip">{a.dept_code}</span>
                 <span className="chip">{TIER_LABEL[a.tier]}</span>
                 <span className="chip">target {a.competency_target}</span>
+                {status[a.id]?.aps != null ? (
+                  <span className="chip" style={{ borderColor: 'rgba(52,211,153,0.5)' }}>
+                    ✓ ran · APS {status[a.id].aps}
+                  </span>
+                ) : (
+                  <span className="chip dim">not run yet</span>
+                )}
               </div>
               <div className="kpi-list">
                 {a.kpis.slice(0, 3).map((k, i) => <div key={i} className="kpi-item">{k}</div>)}

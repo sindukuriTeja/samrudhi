@@ -345,6 +345,25 @@ class Database:
         with self._connect() as conn:
             return self._rows(conn.execute(q, args).fetchall())
 
+    def latest_run_per_agent(self) -> list[dict]:
+        """Most recent run per agent (single grouped query)."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM (SELECT *, ROW_NUMBER() OVER "
+                "(PARTITION BY agent_id ORDER BY started_at DESC, "
+                "rowid DESC) rn FROM runs) WHERE rn = 1").fetchall()
+        return [dict(r) for r in rows]
+
+    def latest_aps_per_agent(self) -> dict:
+        """Most recent APS evaluation per agent (single grouped query)."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM (SELECT agent_id, score, ROW_NUMBER() OVER "
+                "(PARTITION BY agent_id ORDER BY created_at DESC, "
+                "rowid DESC) rn FROM evaluations WHERE dimension='APS') "
+                "WHERE rn = 1").fetchall()
+        return {r["agent_id"]: r["score"] for r in rows}
+
     # ---------- approvals ----------
     def create_approval(self, deliverable_id: str, stage: str, kind: str,
                         status: str = "pending", **kw: Any) -> dict:

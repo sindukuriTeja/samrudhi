@@ -164,6 +164,36 @@ def list_agents(request: Request, tier: str | None = None,
     return out
 
 
+@router.get("/agents/status")
+def agents_status(request: Request):
+    """Last-run state + SAPI APS for every registered agent.
+
+    One lightweight query (runs only) gives the UI a *persistent* baseline:
+    agents that have executed in a past cycle show as done with their score
+    even after a page reload, instead of resetting to idle.
+    """
+    db = request.app.state.db
+    last: dict[str, dict] = {}
+    for r in db.latest_run_per_agent():
+        if r["status"] == "completed":
+            state = "done"
+        elif r["status"] == "failed":
+            state = "failed"
+        else:  # 'running' (server restarted mid-run) — don't pin as working
+            state = "idle"
+        last[r["agent_id"]] = {"state": state, "ts": r["started_at"],
+                               "run_id": r["id"], "stage": r["stage"]}
+    aps = db.latest_aps_per_agent()
+    out = []
+    for a in AGENTS:
+        s = last.get(a.id) or {"state": "idle", "ts": None,
+                               "run_id": None, "stage": None}
+        s = dict(s)
+        s["aps"] = aps.get(a.id)
+        out.append({"id": a.id, **s})
+    return out
+
+
 @router.get("/agents/{agent_id}")
 def get_agent_detail(agent_id: str, request: Request):
     a = get_agent(agent_id)
